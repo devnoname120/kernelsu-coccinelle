@@ -114,7 +114,7 @@ sys_execve(T1 filenamei, const char __user *const __user *argv, ...) {
 }
 
 // Alternative for Linux 3.10
-// File exec.c
+// File fs/exec.c
 // Adds hook to SYSCALL_DEFINE3(execve, ...).
 @do_execve_hook_minimized_alternative3_1 depends on file in "exec.c" && never do_execve_hook_minimized && never do_execve_hook_minimized_alternative && never do_execve_hook_minimized_alternative2@
 identifier filenam, argv, envp;
@@ -343,3 +343,127 @@ devpts_get_priv(struct dentry *dentry) {
 +#endif
 ...
 }
+
+
+@has_can_umount@
+identifier path, flags;
+@@
+can_umount(const struct path *path, int flags) { ... }
+
+// Backport for Linux < 5.9
+// File: fs/namespace.c
+@path_umount depends on file in "namespace.c" && never has_can_umount@
+@@
+do_umount(...) { ... }
++static int can_umount(const struct path *path, int flags)
++{
++struct mount *mnt = real_mount(path->mnt);
++
++if (flags & ~(MNT_FORCE | MNT_DETACH | MNT_EXPIRE | UMOUNT_NOFOLLOW))
++  return -EINVAL;
++if (!ns_capable(current->nsproxy->mnt_ns->user_ns, CAP_SYS_ADMIN))
++  return -EPERM;
++if (path->dentry != path->mnt->mnt_root)
++  return -EINVAL;
++if (!check_mnt(mnt))
++  return -EINVAL;
++#ifdef MNT_LOCKED /* Only available on Linux 3.12+ https://github.com/torvalds/linux/commit/5ff9d8a65ce80efb509ce4e8051394e9ed2cd942 */
++if (mnt->mnt.mnt_flags & MNT_LOCKED) /* Check optimistically */
++  return -EINVAL;
++#endif
++if (flags & MNT_FORCE && !capable(CAP_SYS_ADMIN))
++  return -EPERM;
++return 0;
++}
++
++int path_umount(struct path *path, int flags)
++{
++struct mount *mnt = real_mount(path->mnt);
++int ret;
++
++ret = can_umount(path, flags);
++if (!ret)
++  ret = do_umount(mnt, flags);
++
++/* we mustn't call path_put() as that would clear mnt_expiry_mark */
++dput(path->dentry);
++mntput_no_expire(mnt);
++return ret;
++}
+
+
+// File: security/selinux/hooks.c
+// Backport for Linux < 4.14
+@selinux_no_nnp_transition depends on file in "hooks.c"@
+identifier new_tsec, old_tsec;
+@@
+
+check_nnp_nosuid(...) {
+	...
+if (new_tsec->sid == old_tsec->sid)
+	return 0;
++
++#ifdef CONFIG_KSU
++static u32 ksu_sid;
++char *secdata;
++int error;
++u32 seclen;
++if (!ksu_sid) {
++		security_secctx_to_secid("u:r:su:s0", strlen("u:r:su:s0"), &ksu_sid);
++}
++error = security_secid_to_secctx(old_tsec->sid, &secdata, &seclen);
++if (!error) {
++	rc = strcmp("u:r:init:s0",secdata);
++	security_release_secctx(secdata, seclen);
++	if (rc == 0 && new_tsec->sid == ksu_sid) {
++		return 0;
++	}
++}
+... when != selinux_policycap_nnp_nosuid_transition
+}
+
+
+@has_get_cred_rcu depends on file in "cred.h"@
+@@
+get_cred_rcu(const struct cred *cred) { ... }
+
+// File: include/linux/cred.h
+// Backport for Linux < 5.0
+@get_cred_rcu_h depends on file in "include/linux/cred.h" && never has_get_cred_rcu@
+@@
+
+get_cred(...) { ... }
+
++static inline const struct cred *get_cred_rcu(const struct cred *cred)
++{
++	struct cred *nonconst_cred = (struct cred *) cred;
++	if (!cred)
++		return NULL;
++#ifdef atomic_inc_not_zero
++	if (!atomic_inc_not_zero(&nonconst_cred->usage))
++		return NULL;
++#else
++	if (!atomic_long_inc_not_zero(&nonconst_cred->usage))
++		return NULL;
++#endif
++	validate_creds(cred);
++	return cred;
++}
+
+// File: kernel/cred.c
+// Backport for Linux < 5.0
+@get_cred_rcu depends on file in "cred.c"@
+identifier atomic_inc_not_zero =~ "atomic_inc_not_zero|atomic_long_inc_not_zero";
+@@
+
+get_task_cred(...) {
+...
+do { ... } while (
+-!atomic_inc_not_zero(&((struct cred *)cred)->usage)
++!get_cred_rcu(cred)
+	);
+...
+}
+
+// File: include/linux/cred.h
+// Backport for Linux < 4.15
