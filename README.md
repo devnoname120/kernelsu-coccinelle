@@ -1,18 +1,53 @@
 # How to use
 
 1) Install [Coccinelle](https://coccinelle.gitlabpages.inria.fr/website/download.html)
-2) Run these commands from a Linux shell:
-  ```sh
-  spatch --sp-file input_handle_event.cocci --in-place --linux-spacing /path-to-kernel/drivers/input/input.c
-  find . -iname '*.cocci' | xargs -I{} -P0 spatch --sp-file {} --dir /path-to-kernel/fs --in-place --linux-spacing
-  ```
-  
-  For example in my case my kernel source location is `~/dev/kernel_xiaomi_sm6150` so I run these commands:
-  
-  ```sh
-  spatch --sp-file input_handle_event.cocci --in-place --linux-spacing ~/dev/kernel_xiaomi_sm6150/drivers/input/input.c
-  find . -iname '*.cocci' | xargs -I{} -P0 spatch --sp-file {} --dir ~/dev/kernel_xiaomi_sm6150/fs --in-place --linux-spacing
-  ```
+
+2) Run the following command to automatically apply the KernelSU patches to your kernel source:
+```sh
+curl -LSs "https://raw.githubusercontent.com/devnoname120/kernelsu-coccinelle/main/autopatch.sh" | bash -s /path-to-kernel -ksu -o
+```
+
+This will:
+- Automatically clone the patch repository if not already present
+- Apply all `.cocci` patches from the main patch set **recursively** across the kernel tree
+
+**Example:**
+```sh
+curl -LSs "https://raw.githubusercontent.com/devnoname120/kernelsu-coccinelle/main/autopatch.sh" | bash -s ~/dev/kernel_xiaomi_sm6150 -ksu -o
+```
+
+---
+
+### Optional Usage
+
+🔹 **Apply only specific `.cocci` patches to mapped kernel files:**
+```sh
+curl -LSs "https://raw.githubusercontent.com/devnoname120/kernelsu-coccinelle/main/autopatch.sh" | bash -s /path-to-kernel -ksu -m vfs_read.cocci execveat.cocci
+```
+
+🔹 **Use scope-minimized hooks instead (not compatible with other patches):**
+```sh
+curl -LSs "https://raw.githubusercontent.com/devnoname120/kernelsu-coccinelle/main/autopatch.sh" | bash -s /path-to-kernel -scope
+```
+
+This will apply the alternative patch `scope-minimized-hooks/kernelsu-scope-minimized.cocci` to a set of minimal, performance-sensitive directories.
+
+> ⚠️ Do **not** combine `-scope` with other patch modes.
+
+---
+
+### Options Summary
+
+| Option       | Description                                                                 |
+|--------------|-----------------------------------------------------------------------------|
+| `-ksu`       | (Default) Use KernelSU standard patch set                                   |
+| `-scope`     | Use the minimal performance-impacting patch only                            |
+| `-o`         | Apply patches recursively across all `.c` files in the kernel source        |
+| `-m`         | Apply patches only to known target files (recommended for safety)           |
+
+---
+
+For more information on writing and learning about `.cocci` patches, see the **Learning Coccinelle** section below.
 
 # How to learn Coccinelle
 
