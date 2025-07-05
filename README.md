@@ -1,18 +1,35 @@
-# How to use
+# KernelSU Coccinelle
 
-1) Install [Coccinelle](https://coccinelle.gitlabpages.inria.fr/website/download.html)
-2) Run these commands from a Linux shell:
-  ```sh
-  spatch --sp-file input_handle_event.cocci --in-place --linux-spacing /path-to-kernel/drivers/input/input.c
-  find . -iname '*.cocci' | xargs -I{} -P0 spatch --sp-file {} --dir /path-to-kernel/fs --in-place --linux-spacing
-  ```
-  
-  For example in my case my kernel source location is `~/dev/kernel_xiaomi_sm6150` so I run these commands:
-  
-  ```sh
-  spatch --sp-file input_handle_event.cocci --in-place --linux-spacing ~/dev/kernel_xiaomi_sm6150/drivers/input/input.c
-  find . -iname '*.cocci' | xargs -I{} -P0 spatch --sp-file {} --dir ~/dev/kernel_xiaomi_sm6150/fs --in-place --linux-spacing
-  ```
+This repository contains semantic patches that can be used to apply so-called “manual” KernelSU hooks on a wide range of Android kernels without needing to do anything manually or fixing any conflicts. These patches are written in Coccinelle's excellent Semantic Patch Language (SmPL) which operates on the *code structure* rather unlike `diff` and `git diff`.
+
+These patches are much more robust and universal than diffs. In addition to working on a wide range of kernel versions, they don't care about comments, spacing, crappy vendor kernel backports, most variable names, etc. The downside is that they are *much* harder to create and the documentation is sparse. Now, today is your lucky day because I already went through all the trouble myself so that you can stay blissfully unaware of how it actually works.
+
+# Quick use
+
+If you are too lazy to read anything then just go to your Android kernel directory and run this:
+
+```sh
+curl https://raw.githubusercontent.com/devnoname120/kernelsu-coccinelle/online/apply.sh | sh
+```
+
+# Hook types
+
+There are two flavors of the patches needed to integrate KernelSU and its forks into your kernel:
+
+## 1. [Classic hooks](https://github.com/devnoname120/kernelsu-coccinelle/tree/main/classic-hooks)
+
+Those are a re-implementation of the OG “manual hooks” as semantic patches with some additional required backports. These are the most basic and have the best compatibility with OG KernelSU* and its forks.
+
+  👉 See [`classic-hooks/README.md`](classic-hooks/README.md).
+
+## 2. [Scope-minimized hooks](https://github.com/devnoname120/kernelsu-coccinelle/tree/main/scope-minimized-hooks)
+
+These hooks are mostly based on [@backslashxx](https://github.com/backslashxx)'s scope-minimized hooks v1.3 + ultra-legacy + lots of backports + I read an insane number of vendor custom Android kernel sources to properly handle all cases and their quirks.
+
+Use these if your kernel version is not supported by the `classic-hooks` or if you like to live dangerously. Note that these are *not* supported by OG KSU best used in combination with [KernelSU Next](https://github.com/KernelSU-Next/KernelSU-Next) as other forks may miss some of the commits that are required for the scope-minimized hooks to work.
+
+👉 See [`scope-minimized-hooks/README.md`](scope-minimized-hooks/README.md).
+
 
 # How to learn Coccinelle
 

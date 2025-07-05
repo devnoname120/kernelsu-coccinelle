@@ -1,8 +1,10 @@
+# KernelSU Coccinelle (classic hooks)
+
 **Supported Linux kernels: 3.4 to 6.15 (and above)**
 
-Alternative manual hooks from @backslashxx that are designed to minimize the number of common code paths that are hooked in order to reduce their performance impact (though nobody proved that the original hooks have any significant perf impact AFAIK…)
+Alternative manual hooks based on [@backslashxx](https://github.com/backslashxx)'s work. They are designed to minimize the number of common code paths that are hooked in order to reduce their performance impact (though nobody proved that the original hooks have any significant perf impact AFAIK…)
 
-They are based on https://github.com/backslashxx/KernelSU/issues/5
+They are mostly based on https://github.com/backslashxx/KernelSU/issues/5
 
 **Note**: Don't apply the patches from the parent directory if you use the patches from this folder! They are standalone and shouldn't be combined with the other ones.
 
